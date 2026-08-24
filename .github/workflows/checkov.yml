@@ -21,34 +21,93 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   checkov:
-    name: Checkov IaC Security Scan
+    name: Terraform Security Scan
     runs-on: ubuntu-latest
 
     steps:
+
+      # ---------------------------------------------------------
+      # Checkout Terraform code
+      # ---------------------------------------------------------
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
+
+      # ---------------------------------------------------------
+      # Run Checkov
+      #
+      # soft_fail: false means:
+      #
+      # Checkov findings → workflow FAIL
+      #
+      # This is important for using Checkov as a security gate.
+      # ---------------------------------------------------------
+
       - name: Run Checkov
+        id: checkov
         uses: bridgecrewio/checkov-action@v12
         with:
           directory: .
           framework: terraform
 
-          # Show results in the GitHub Actions console
-          # and generate SARIF for GitHub Security.
-          output_format: cli,sarif
-          output_file_path: console,checkov-results.sarif
+          # Human-readable output only.
+          output_format: cli
 
-          # Fail the workflow when Checkov finds a failed check.
+          # Fail the GitHub Actions job when checks fail.
           soft_fail: false
 
-      - name: Upload Checkov SARIF
+          # Show passed checks as well.
+          compact: true
+
+
+      # ---------------------------------------------------------
+      # Create GitHub Actions Job Summary
+      # ---------------------------------------------------------
+
+      - name: Generate Checkov Security Summary
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: checkov-results.sarif
-          category: checkov
+        run: |
+
+          echo "# 🔐 Checkov Terraform Security Scan" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "## Scan Information" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Scanner | Checkov |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Framework | Terraform |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Trigger | ${{ github.event_name }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Branch | ${{ github.ref_name }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Commit | \`${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ steps.checkov.outcome }}" = "success" ]; then
+
+            echo "## ✅ Security Check Passed" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No failing Checkov security policies were detected." \
+              >> "$GITHUB_STEP_SUMMARY"
+
+          else
+
+            echo "## ❌ Security Check Failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Checkov detected one or more Terraform security policy violations." \
+              >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Review the **Run Checkov** step above for the complete findings, including:" \
+              >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Check ID" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Terraform resource" >> "$GITHUB_STEP_SUMMARY"
+            echo "- File and line number" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Failed security policy" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Recommended remediation" >> "$GITHUB_STEP_SUMMARY"
+
+          fi
