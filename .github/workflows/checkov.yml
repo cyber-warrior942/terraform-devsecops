@@ -9,13 +9,13 @@ on:
       - '**/*.tfvars'
       - '**/*.hcl'
 
-  push:
-    branches:
-      - main
-    paths:
-      - '**/*.tf'
-      - '**/*.tfvars'
-      - '**/*.hcl'
+ # push:
+   # branches:
+    #  - main
+  #  paths:
+   #   - '**/*.tf'
+     # - '**/*.tfvars'
+   #   - '**/*.hcl'
 
   workflow_dispatch:
 
